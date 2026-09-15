@@ -1,6 +1,10 @@
 const input = document.querySelector<HTMLInputElement>("#input-url");
 const status = document.querySelector<HTMLParagraphElement>("#status");
 
+if (!input || !status) {
+  throw new Error("Required DOM elements not found");
+}
+
 type urlType = 'URL'| 'FOLDER' | 'FILE';
 
 interface Reponse{
@@ -26,21 +30,26 @@ function isValid(value: string): boolean {
   return url.protocol === "http:" || url.protocol === "https:";
 }
 
-function checkURLOnServer(url:string):Promise<Reponse>{
+function checkURLOnServer(url: string): Promise<Reponse> {
   return new Promise((resolve) => {
-const checkUrl = mockData[url];
+    const delay = Math.floor(Math.random() * 600) + 200;
 
-  if(!checkUrl){
-    resolve({
-exists: false
-    })
-  }
-   resolve({
-    exists: true,
-    type: checkUrl
-   })
+    setTimeout(() => {
+      const checkUrl = mockData[url];
+
+      if (!checkUrl) {
+        resolve({
+          exists: false
+        });
+        return;
+      }
+
+      resolve({
+        exists: true,
+        type: checkUrl
+      });
+    }, delay);
   });
-  
 }
 
 const debounce = (
