@@ -1,13 +1,15 @@
 const input = document.querySelector<HTMLInputElement>("#input-url");
 const status = document.querySelector<HTMLParagraphElement>("#status");
 
+let currentController: AbortController | null = null;
+
 if (!input || !status) {
   throw new Error("Required DOM elements not found");
 }
 
 type urlType = 'URL'| 'FOLDER' | 'FILE';
 
-interface Reponse{
+interface Reponse {
   exists: boolean,
   type?: urlType
 }
@@ -30,11 +32,17 @@ function isValid(value: string): boolean {
   return url.protocol === "http:" || url.protocol === "https:";
 }
 
-function checkURLOnServer(url: string): Promise<Reponse> {
-  return new Promise((resolve) => {
-    const delay = Math.floor(Math.random() * 600) + 200;
+function checkURLOnServer(url: string, signal: AbortSignal): Promise<Reponse> {
+  return new Promise((resolve, reject) => {
 
-    setTimeout(() => {
+    if (signal.aborted) {
+      reject(signal.reason);
+      return;
+    }
+
+    const delay = Math.floor(Math.random() * 600) + 2000;
+
+    const timeoutId = window.setTimeout(() => {
       const checkUrl = mockData[url];
 
       if (!checkUrl) {
@@ -49,6 +57,11 @@ function checkURLOnServer(url: string): Promise<Reponse> {
         type: checkUrl
       });
     }, delay);
+
+   signal.addEventListener("abort", () => {
+  clearTimeout(timeoutId);
+  reject(signal.reason);
+});
   });
 }
 
@@ -67,8 +80,9 @@ const debounce = (
   };
 };
 
-const debouncedCheck = debounce(async (url: string) => {
-  const result = await checkURLOnServer(url);
+const debouncedCheck = debounce(async (url: string, signal: AbortSignal) => {
+  try{
+      const result = await checkURLOnServer(url, signal);
   if(!result.exists){
     status.textContent = "URL does not exists";
     return;
@@ -79,10 +93,19 @@ const debouncedCheck = debounce(async (url: string) => {
  }
 
   status.textContent = `URL exists and the type is ${result.type}`;
+  }
+  catch (error) {
+  if (signal.aborted) return;
+  console.error(error);
+}
+
 }, 500);
 
 
 input.addEventListener("input", () => {
+
+  currentController?.abort();
+
   const url = input.value.trim();
   if(!url){
     status.textContent = ""
@@ -95,8 +118,10 @@ input.addEventListener("input", () => {
 
   }
 
+  currentController = new AbortController();  
+
   status.textContent = "Valid URL"
 
-debouncedCheck(url);
+  debouncedCheck(url, currentController.signal);
   
 })
