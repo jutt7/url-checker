@@ -32,17 +32,12 @@ function isValid(value: string): boolean {
   return url.protocol === "http:" || url.protocol === "https:";
 }
 
-function checkURLOnServer(url: string, signal: AbortSignal): Promise<Reponse> {
-  return new Promise((resolve, reject) => {
+function checkURLOnServer(url: string): Promise<Reponse> {
+  return new Promise((resolve) => {
 
-    if (signal.aborted) {
-      reject(signal.reason);
-      return;
-    }
+    const delay = Math.floor(Math.random() * 600) + 200;
 
-    const delay = Math.floor(Math.random() * 600) + 2000;
-
-    const timeoutId = window.setTimeout(() => {
+    setTimeout(() => {
       const checkUrl = mockData[url];
 
       if (!checkUrl) {
@@ -57,11 +52,6 @@ function checkURLOnServer(url: string, signal: AbortSignal): Promise<Reponse> {
         type: checkUrl
       });
     }, delay);
-
-   signal.addEventListener("abort", () => {
-  clearTimeout(timeoutId);
-  reject(signal.reason);
-});
   });
 }
 
@@ -80,9 +70,27 @@ const debounce = (
   };
 };
 
+function requestURLCheck(url: string, signal: AbortSignal ): Promise<Reponse> {
+  return new Promise((resolve, reject) => {
+
+    if (signal.aborted) {
+      reject(signal.reason);
+      return;
+    }
+
+    signal.addEventListener("abort",() => reject(signal.reason),
+      { once: true }
+    );
+
+    checkURLOnServer(url)
+      .then(resolve)
+      .catch(reject);
+  });
+}
+
 const debouncedCheck = debounce(async (url: string, signal: AbortSignal) => {
   try{
-      const result = await checkURLOnServer(url, signal);
+      const result = await requestURLCheck(url, signal);
   if(!result.exists){
     status.textContent = "URL does not exists";
     return;
